@@ -1,5 +1,29 @@
 # homebridge-ring
 
+## 12.0.0
+
+### Breaking Changes
+
+- Dropped Node 16 support. Node 18 is the current LTS, so please upgrade to Node 18 or Node 20. Note, Node 16 may still work after this update, but will likely break without warning in future updates.
+
+### Patch Changes
+
+- Fixed streaming for all camera models by switching to a new streaming API from Ring
+- Fixed 2-way audio and improve 2-way audio quality
+- Refactored the Homebridge UI to use vanilla JS, shrinking the npm package size
+- Updated dependencies
+
+A huge thank you to @tsightler who did all the discovery and refactor work for streaming and 2-way audio!
+
+## 12.0.0-beta.4
+
+### Patch Changes
+
+- [#1299](https://github.com/dgreif/ring/pull/1299) [`d6a5414`](https://github.com/dgreif/ring/commit/d6a54146370450240d4efcb3f0343227f899c719) Thanks [@tsightler](https://github.com/tsightler)! - Improve 2-way audio quality in homebridge
+
+- Updated dependencies []:
+  - ring-client-api@12.0.0-beta.4
+
 ## 12.0.0-beta.3
 
 ### Patch Changes
