@@ -424,14 +424,14 @@ export class RingRestClient {
     } catch (e: any) {
       const response = e.response || {}
 
-      switch(response.statusCode) {
-        case 401:  // Unauthorized
+      switch (response.statusCode) {
+        case 401: // Unauthorized
           await this.refreshAuth()
           return this.request(options)
-        case 500:  // Service error
-        case 502:  // Bad gateway
-        case 503:  // Service Unavailable
-        case 504:  // Gateway timeout
+        case 500: // Service error
+        case 502: // Bad gateway
+        case 503: // Service Unavailable
+        case 504: // Gateway timeout
           await delay(30000)
           return this.request(options)
       }
