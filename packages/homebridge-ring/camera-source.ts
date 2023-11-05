@@ -174,17 +174,21 @@ class StreamingSessionWrapper {
     this.repacketizeAudioSplitter.addMessageHandler(({ message }) => {
       let rtp: RtpPacket | undefined = RtpPacket.deSerialize(message)
 
+      if (!rtp) {
+        return null
+      }
+
       if (audioCodec === AudioStreamingCodecType.OPUS) {
-        // borrowed from scrypted
-        // Original source: https://github.com/koush/scrypted/blob/c13ba09889c3e0d9d3724cb7d49253c9d787fb97/plugins/homekit/src/types/camera/camera-streaming-srtp-sender.ts#L124-L143
-        rtp = opusRepacketizer.repacketize(rtp)
-
-        if (!rtp) {
-          return null
-        }
-
         if (!firstTimestamp) {
           firstTimestamp = rtp.header.timestamp
+        }
+
+        // borrowed from scrypted
+        // Original source: https://github.com/koush/scrypted/blob/c13ba09889c3e0d9d3724cb7d49253c9d787fb97/plugins/homekit/src/types/camera/camera-streaming-srtp-sender.ts#L124-L143
+        const packets = opusRepacketizer.repacketize(rtp)
+
+        if (!packets) {
+          return null
         }
 
         // from HAP spec:
@@ -201,22 +205,37 @@ class StreamingSessionWrapper {
         // audio will work so long as the rtp timestamps are created properly: which is a construct of the sample rate
         // HAP requests, and the packet time is respected,
         // opus 48khz will work just fine.
-        rtp.header.timestamp =
-          (firstTimestamp + audioPacketCount * 160 * audioIntervalScale) %
-          0xffffffff
-        audioPacketCount++
+        for (rtp of packets) {
+          rtp.header.timestamp =
+            (firstTimestamp + audioPacketCount * 160 * audioIntervalScale) %
+            0xffffffff
+          audioPacketCount++
+          const encryptedPacket = audioSrtpSession.encrypt(
+            rtp.payload,
+            rtp.header,
+          )
+          this.audioSplitter
+            .send(encryptedPacket, {
+              port: audioPort,
+              address: targetAddress,
+            })
+            .catch(logError)
+        }
+      } else {
+        // encrypt the packet
+        const encryptedPacket = audioSrtpSession.encrypt(
+          rtp.payload,
+          rtp.header,
+        )
+
+        // send the encrypted packet to HomeKit
+        this.audioSplitter
+          .send(encryptedPacket, {
+            port: audioPort,
+            address: targetAddress,
+          })
+          .catch(logError)
       }
-
-      // encrypt the packet
-      const encryptedPacket = audioSrtpSession.encrypt(rtp.payload, rtp.header)
-
-      // send the encrypted packet to HomeKit
-      this.audioSplitter
-        .send(encryptedPacket, {
-          port: audioPort,
-          address: targetAddress,
-        })
-        .catch(logError)
 
       return null
     })

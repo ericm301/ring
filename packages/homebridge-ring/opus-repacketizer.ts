@@ -64,17 +64,18 @@ import type { RtpPacket } from 'werift'
 
 export class OpusRepacketizer {
   depacketized: Buffer[] = []
+  extraPackets = 0
 
   constructor(public framesPerPacket: number) {}
 
   // repacketize a packet with a single frame into a packet with multiple frames.
-  repacketize(packet: RtpPacket): RtpPacket | undefined {
+  repacketize(packet: RtpPacket): RtpPacket[] | undefined {
     const code = packet.payload[0] & 0b00000011
     let offset: number
 
     // see Frame Length Coding in RFC
     const decodeFrameLength = () => {
-      let frameLength = packet.payload.readUInt8(offset)
+      let frameLength = packet.payload.readUInt8(offset++)
       if (frameLength >= 252) {
         offset++
         frameLength += packet.payload.readUInt8(offset) * 4
@@ -87,11 +88,15 @@ export class OpusRepacketizer {
     // code 3: cbr/vbr signaled, variable packets
 
     if (code === 0) {
-      if (this.framesPerPacket === 1 && !this.depacketized.length) return packet
+      if (this.framesPerPacket === 1 && !this.depacketized.length) {
+        return [packet]
+      }
       // depacketize by stripping off the config byte
       this.depacketized.push(packet.payload.subarray(1))
     } else if (code === 1) {
-      if (this.framesPerPacket === 2 && !this.depacketized.length) return packet
+      if (this.framesPerPacket === 2 && !this.depacketized.length) {
+        return [packet]
+      }
       // depacketize by dividing the remaining payload into two equal sized frames
       const remaining = packet.payload.length - 1
       if (remaining % 2) {
@@ -101,7 +106,9 @@ export class OpusRepacketizer {
       this.depacketized.push(packet.payload.subarray(1, 1 + frameLength))
       this.depacketized.push(packet.payload.subarray(1 + frameLength))
     } else if (code === 2) {
-      if (this.framesPerPacket === 2 && !this.depacketized.length) return packet
+      if (this.framesPerPacket === 2 && !this.depacketized.length) {
+        return [packet]
+      }
       offset = 1
       // depacketize by dividing the remaining payload into two inequal sized frames
       const frameLength = decodeFrameLength()
@@ -119,7 +126,7 @@ export class OpusRepacketizer {
         this.framesPerPacket === packetFrameCount &&
         !this.depacketized.length
       ) {
-        return packet
+        return [packet]
       }
       const paddingIndicator = frameCountByte & 0b01000000
       offset = 2
@@ -146,38 +153,51 @@ export class OpusRepacketizer {
         }
       } else {
         const frameLengths: number[] = []
-        for (let i = 0; i < packetFrameCount; i++) {
+        for (let i = 0; i < packetFrameCount - 1; i++) {
           const frameLength = decodeFrameLength()
           frameLengths.push(frameLength)
         }
-        for (let i = 0; i < packetFrameCount; i++) {
+        for (let i = 0; i < frameLengths.length; i++) {
           const frameLength = frameLengths[i],
             start = offset
           offset += frameLength
           this.depacketized.push(packet.payload.subarray(start, offset))
         }
+        const lastFrameLength = packet.payload.length - padding - offset
+        this.depacketized.push(
+          packet.payload.subarray(offset, offset + lastFrameLength),
+        )
       }
     }
 
     if (this.depacketized.length < this.framesPerPacket) return
 
-    const depacketized = this.depacketized.slice(0, this.framesPerPacket)
-    this.depacketized = this.depacketized.slice(this.framesPerPacket)
+    const ret: RtpPacket[] = []
+    /* eslint-disable-next-line no-constant-condition */
+    while (true) {
+      if (this.depacketized.length < this.framesPerPacket) return ret
 
-    // reuse the config and stereo indicator, but change the code to 3.
-    let toc = packet.payload[0]
-    toc |= 0b00000011
-    // vbr | padding indicator | packet count
-    const frameCountByte = 0b10000000 | this.framesPerPacket,
-      newHeader: number[] = [toc, frameCountByte]
+      const depacketized = this.depacketized.slice(0, this.framesPerPacket)
+      this.depacketized = this.depacketized.slice(this.framesPerPacket)
 
-    // M-1 length bytes
-    newHeader.push(...depacketized.slice(0, -1).map((data) => data.length))
+      // reuse the config and stereo indicator, but change the code to 3.
+      let toc = packet.payload[0]
+      toc |= 0b00000011
+      // vbr | padding indicator | packet count
+      const frameCountByte = 0b10000000 | this.framesPerPacket,
+        newHeader: number[] = [toc, frameCountByte]
 
-    const headerBuffer = Buffer.from(newHeader),
-      payload = Buffer.concat([headerBuffer, ...depacketized])
+      // M-1 length bytes
+      newHeader.push(...depacketized.slice(0, -1).map((data) => data.length))
 
-    packet.payload = payload
-    return packet
+      const headerBuffer = Buffer.from(newHeader),
+        payload = Buffer.concat([headerBuffer, ...depacketized]),
+        newPacket = packet.clone()
+      if (ret.length) this.extraPackets++
+      newPacket.header.sequenceNumber =
+        (packet.header.sequenceNumber + this.extraPackets + 0x10000) % 0x10000
+      newPacket.payload = payload
+      ret.push(newPacket)
+    }
   }
 }
