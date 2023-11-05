@@ -60,6 +60,7 @@ export interface ExtendedResponse {
 
 async function requestWithRetry<T>(
   requestOptions: RequestOptions & { url: string; allowNoResponse?: boolean },
+  retryCount: number,
 ): Promise<T & ExtendedResponse> {
   try {
     const options = {
@@ -82,7 +83,7 @@ async function requestWithRetry<T>(
     }
     return data
   } catch (e: any) {
-    if (!e.response && !requestOptions.allowNoResponse) {
+    if (!e.response && !requestOptions.allowNoResponse && retryCount >= 3) {
       logError(
         `Failed to reach Ring server at ${requestOptions.url}.  ${e.message}.  Trying again in 5 seconds...`,
       )
@@ -94,7 +95,7 @@ async function requestWithRetry<T>(
       logDebug(e)
 
       await delay(5000)
-      return requestWithRetry(requestOptions)
+      return requestWithRetry(requestOptions, retryCount ? 1 : retryCount++)
     }
     throw e
   }
@@ -422,15 +423,16 @@ export class RingRestClient {
     } catch (e: any) {
       const response = e.response || {}
 
-      if (response.statusCode === 401) {
-        await this.refreshAuth()
-        return this.request(options)
-      }
-
-      if (response.statusCode === 504) {
-        // Gateway Timeout.  These should be recoverable, but wait a few seconds just to be on the safe side
-        await delay(5000)
-        return this.request(options)
+      switch(response.statusCode) {
+        case 401:  // Unauthorized
+          await this.refreshAuth()
+          return this.request(options)
+        case 500:  // Service error
+        case 502:  // Bad gateway
+        case 503:  // Service Unavailable
+        case 504:  // Gateway timeout
+          await delay(30000)
+          return this.request(options)
       }
 
       if (
@@ -484,7 +486,9 @@ export class RingRestClient {
         logError(`Request to ${url} failed:`)
         logError(e)
       }
+    }
 
+    if (!options.allowNoResponse) {
       throw e
     }
   }
