@@ -60,8 +60,9 @@ export interface ExtendedResponse {
 
 async function requestWithRetry<T>(
   requestOptions: RequestOptions & { url: string; allowNoResponse?: boolean },
-  retryCount: number,
+  retryCount?: number,
 ): Promise<T & ExtendedResponse> {
+  retryCount = retryCount || 0
   try {
     const options = {
         ...defaultRequestOptions,
@@ -83,7 +84,7 @@ async function requestWithRetry<T>(
     }
     return data
   } catch (e: any) {
-    if (!e.response && !requestOptions.allowNoResponse && retryCount >= 3) {
+    if (!e.response && !requestOptions.allowNoResponse && retryCount % 3) {
       logError(
         `Failed to reach Ring server at ${requestOptions.url}.  ${e.message}.  Trying again in 5 seconds...`,
       )
@@ -95,7 +96,7 @@ async function requestWithRetry<T>(
       logDebug(e)
 
       await delay(5000)
-      return requestWithRetry(requestOptions, retryCount ? 1 : retryCount++)
+      return requestWithRetry(requestOptions, retryCount++)
     }
     throw e
   }
@@ -486,10 +487,7 @@ export class RingRestClient {
         logError(`Request to ${url} failed:`)
         logError(e)
       }
-    }
-
-    if (!options.allowNoResponse) {
-      throw e
+      return response
     }
   }
 
