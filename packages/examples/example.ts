@@ -65,8 +65,8 @@ async function example() {
   const snap = await fluffyCam.getSnapshot(),
     snapAge = fluffyCam.currentTimestampAge;
 
-  console.log(`\nSnap taken ${snapAge / 1000} seconds ago.\n`);
-  await promisify(writeFile)(`${takeTime(Date.now() - 1000 * snapAge)}snap.jpg`, snap)
+  console.log(`\nSnap age: ${snapAge} seconds ago.\n`);
+  await promisify(writeFile)(`../../snap/${takeTime(Date.now() - 1000 * snapAge)}_snap.jpg`, snap)
   
   await sub.unsubscribe();
   process.exit(0);
