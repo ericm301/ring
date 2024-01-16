@@ -8,4 +8,5 @@ yarn.lock
 .homebridge
 .hoobs
 .turbo
-jpg
+*.jpg
+snap
