@@ -27,8 +27,12 @@ function getAuth() {
   return { ringApi, sub }
 }
 
-function takeTime(timeval: number): string {
+function takeTime(timeval: number = -1, separator: string = ''): string {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  type DT_FormatOptions = Intl.DateTimeFormatPart
+
   // gets the time string and constructs a string like 'YYYYMMDD_HHmmss'
+  // There has got to be an easier way to do this!
   const t = new Date(timeval),
     d2 = '2-digit',
     DT_Opts: Intl.DateTimeFormatOptions = {
@@ -49,8 +53,9 @@ function takeTime(timeval: number): string {
         return obj
       },
       {},
-    ) as any // shut up, ts!
-  return `${year + month + day}_${hour + minute + second}` //  concatenation, NOT addition!
+    ) as any, // shut up, ts!
+    s = separator
+  return `${year}${s}${month}${s}${day}_${hour}${s}${minute}${s}${second}`
 }
 
 async function example() {
