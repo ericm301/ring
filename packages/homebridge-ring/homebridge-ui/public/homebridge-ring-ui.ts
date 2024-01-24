@@ -81,7 +81,7 @@ function showLoginForm() {
       },
     },
     {},
-    'Log In'
+    'Log In',
   )
 
   form.onSubmit(async ({ email, password }) => {
@@ -135,7 +135,7 @@ function showTokenForm(loginInfo: {
     },
     {},
     'Link Account',
-    'Change Email'
+    'Change Email',
   )
 
   form.onSubmit(async ({ code }) => {

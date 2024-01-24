@@ -2,7 +2,7 @@
   "extends": "tsconfig/tsconfig.json",
   "compilerOptions": {
     "outDir": "./lib",
-    "types": ["@homebridge/plugin-ui-utils/dist/ui.interface"],
+    "types": ["@homebridge/plugin-ui-utils/dist/ui.interface"]
   },
   "include": ["**/*.ts"]
 }

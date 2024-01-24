@@ -87,7 +87,7 @@ import { RingDeviceType } from 'ring-client-api'
 
 const devices = await location.getDevices()
 const baseStation = devices.find(
-  (device) => device.data.deviceType === RingDeviceType.BaseStation
+  (device) => device.data.deviceType === RingDeviceType.BaseStation,
 )
 baseStation.setVolume(0.75) // base station and keypad support volume settings between 0 and 1
 console.log(baseStation.data) // object containing properties like zid, name, roomId, faulted, tamperStatus, etc.
