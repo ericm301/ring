@@ -1,19 +1,20 @@
 import 'dotenv/config'
 import { RingApi } from 'ring-client-api'
 import { acquireRefreshToken } from '../ring-client-api/refresh-token'
-import { access, constants, readFile, writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 const accessKey = 'RING_REFRESH_TOKEN'
 
 export async function getAuth() {
   const { env } = process
   var newToken: string = ''
 
-  if (!env?.RING_REFRESH_TOKEN && !access('.env', constants.W_OK)) {
+  if (!env.RING_REFRESH_TOKEN) {
     newToken = await acquireRefreshToken()
     try {
       await writeFile('.env', `${accessKey}=${newToken}`)
     } catch (e) {
-      console.error("Can't write to .env file!")
+      console.error("Writing to .env file failed!")
+      throw(e)
     }
   }
 
@@ -53,6 +54,7 @@ export function takeTime(timeval: number = -1, separator: string = ''): string {
       hour: d2,
       minute: d2,
       second: d2,
+      hourCycle: 'h23',
     },
     timeFormatter = Intl.DateTimeFormat('en-US', DT_Opts),
     timeFields: Intl.DateTimeFormatPart[] = timeFormatter.formatToParts(t),

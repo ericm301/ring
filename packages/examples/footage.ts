@@ -7,11 +7,15 @@ import got from 'got'
 async function getFootage() {
   const { ringApi, sub } = await getAuth(),
     cams = (await ringApi.getCameras()) as RingCamera[],
-    fluffyCam = cams.find((cam) => cam.name === '@Fluffy')!
+    fluffyCam = cams.find((cam) => cam.name === '@Fluffy')!,
+    midnight = new Date(new Date().toLocaleDateString()).getTime(),
+    fullDayMs = 24 * 60 * 60 * 1000
 
   fluffyCam.requestUpdate()
 
-  const footage = await fluffyCam.getPeriodicalFootage(),
+  const footage = await fluffyCam.getPeriodicalFootage(
+      {startAtMs: midnight - fullDayMs, endAtMs: midnight - 1}
+    ),
     videoCaptures = footage.data.map<Promise<any>>((segment) => {
       const { start_ms, url } = segment,
         filename = `../../snapvideo/${takeTime(start_ms)}.mp4`
