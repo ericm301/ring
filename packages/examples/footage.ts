@@ -1,26 +1,30 @@
 import 'dotenv/config'
 import { writeFile } from 'node:fs/promises'
 import { getAuth, takeTime } from './auth-token'
+import { RingCamera } from 'ring-client-api'
+import got from 'got'
 
-async function example() {
-  const { ringApi, sub } = getAuth(),
-    // locations = await ringApi.getLocations(),
-    // home = locations[0],
-    cams = await ringApi.getCameras(),
+async function getFootage() {
+  const { ringApi, sub } = await getAuth(),
+    cams = (await ringApi.getCameras()) as RingCamera[],
     fluffyCam = cams.find((cam) => cam.name === '@Fluffy')!
 
   fluffyCam.requestUpdate()
 
-  const snap = await fluffyCam.getSnapshot(),
-    snapAge = fluffyCam.currentTimestampAge
-
-  console.log(`\nSnap age: ${snapAge / 1000} seconds ago.\n`)
-  await writeFile(`../../snap/${takeTime(Date.now() - snapAge)}_snap.jpg`, snap)
+  const footage = await fluffyCam.getPeriodicalFootage(),
+    videoCaptures = footage.data.map<Promise<any>>((segment) => {
+      const { start_ms, url } = segment,
+        filename = `../../snapvideo/${takeTime(start_ms)}.mp4`
+      return got(url)
+        .buffer()
+        .then((video) => writeFile(filename, video))
+    })
+  await Promise.all(videoCaptures)
 
   sub.unsubscribe()
   process.exit(0)
 }
 
-example().catch((e: any) => {
+getFootage().catch((e: any) => {
   console.error('Example threw an error:', e)
 })

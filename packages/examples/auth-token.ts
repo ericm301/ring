@@ -1,12 +1,24 @@
 import 'dotenv/config'
 import { RingApi } from 'ring-client-api'
+import { acquireRefreshToken } from '../ring-client-api/refresh-token'
+import { access, constants, readFile, writeFile } from 'node:fs/promises'
+const accessKey = 'RING_REFRESH_TOKEN'
 
-import { readFile, writeFile } from 'node:fs/promises'
+export async function getAuth() {
+  const { env } = process
+  var newToken: string = ''
 
-export function getAuth() {
-  const { env } = process,
-    ringApi = new RingApi({
-      refreshToken: env.RING_REFRESH_TOKEN!,
+  if (!env?.RING_REFRESH_TOKEN && !access('.env', constants.W_OK)) {
+    newToken = await acquireRefreshToken()
+    try {
+      await writeFile('.env', `${accessKey}=${newToken}`)
+    } catch (e) {
+      console.error("Can't write to .env file!")
+    }
+  }
+
+  const ringApi: RingApi = new RingApi({
+      refreshToken: newToken || env.RING_REFRESH_TOKEN!,
       debug: true,
     }),
     sub = ringApi.onRefreshTokenUpdated.subscribe(

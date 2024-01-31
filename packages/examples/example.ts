@@ -3,9 +3,7 @@ import { writeFile } from 'node:fs/promises'
 import { getAuth, takeTime } from './auth-token'
 
 async function example() {
-  const { ringApi, sub } = getAuth(),
-    // locations = await ringApi.getLocations(),
-    // home = locations[0],
+  const { ringApi, sub } = await getAuth(),
     cams = await ringApi.getCameras(),
     fluffyCam = cams.find((cam) => cam.name === '@Fluffy')!
 
